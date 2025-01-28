@@ -140,6 +140,11 @@ public class LogWatcher extends Thread {
             } else {
                 logBuilder.append(line).append("\n");
             }
+            // If the logBuilder exceeds a threshold, interpret the log lines and clear the logBuilder
+            if (logBuilder.length() > 1000000) {
+                interpreter.interpret(errorLine, logBuilder.toString());
+                logBuilder.setLength(0);
+            }
         }
     }
 }
