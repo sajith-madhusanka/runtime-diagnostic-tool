@@ -76,32 +76,69 @@ public class ThreadDumper implements ActionExecutor {
 
         if (new File(folderPath).exists()) { // check whether file exists before dumping.
             String commandFrame = System.getenv("JAVA_HOME") + "/bin/jstack " + pID;
+            String commandFrame2 = "ps --pid " + pID + " -Lo pid,tid,%cpu,time,nlwp,c";
 
             for (int counter = 1; counter <= threadDumpCount; counter++) {
                 try {
                     String currentTimeStamp = String.valueOf(System.currentTimeMillis());
-                    String filepath = folderPath + "/threaddump-" + counter + "-" + currentTimeStamp + ".txt";
-                    Process process = Runtime.getRuntime().exec(commandFrame);
-                    Scanner scanner = new Scanner(process.getInputStream());
-                    scanner.useDelimiter("\\A");
-                    try {
-                        FileWriter writer = new FileWriter(filepath);
-                        writer.write(scanner.next());
-                        writer.close();
-                    } catch (IOException e) {
-                        log.error("Unable to do write in file while thread dumping");
-                    }
-                    scanner.close();
+
+                    String jstackFilePath = folderPath + "/thread-dump-" + counter + "-" + currentTimeStamp + ".txt";
+                    String psFilePath = folderPath + "/thread-usage-" + counter + "-" + currentTimeStamp + ".txt";
+
+                    Thread jstackThread = new Thread(() -> {
+                        try {
+                            Process process = Runtime.getRuntime().exec(commandFrame);
+                            Scanner scanner = new Scanner(process.getInputStream());
+                            scanner.useDelimiter("\\A");
+                            if (scanner.hasNext()) {
+                                try (FileWriter writer = new FileWriter(jstackFilePath)) {
+                                    writer.write(scanner.next());
+                                }
+                                catch (IOException e) {
+                                    log.error("Unable to do write in file while thread dumping");
+                                }
+                            }
+                            scanner.close();
+                        } catch (IOException e) {
+                            log.error("Error during jstack command: " + e.getMessage());
+                        }
+                    });
+
+                    Thread psThread = new Thread(() -> {
+                        try {
+                            Process process = Runtime.getRuntime().exec(commandFrame2);
+                            Scanner scanner = new Scanner(process.getInputStream());
+                            scanner.useDelimiter("\\A");
+                            if (scanner.hasNext()) {
+                                try (FileWriter writer = new FileWriter(psFilePath)) {
+                                    writer.write(scanner.next());
+                                }
+                                catch (IOException e) {
+                                    log.error("Unable to do write in file while thread dumping");
+                                }
+
+                            }
+                            scanner.close();
+                        } catch (IOException e) {
+                            log.error("Error during ps command: " + e.getMessage());
+                        }
+                    });
+
+                    jstackThread.start();
+                    psThread.start();
+
+                    jstackThread.join();
+                    psThread.join();
+
                     synchronized (this) {
                         this.wait(delay);
                     }
-                } catch (IOException e) {
-                    log.error("Unable to do thread dump for " + pID + "\n");
-                } catch (InterruptedException e) {
-                    log.error("Unable to do wait delay time due to : " + e.getMessage());
-                }
 
+                } catch (InterruptedException e) {
+                    log.error("Thread interrupted while waiting: " + e.getMessage());
+                }
             }
+
         }
         log.info("Thread dump execution is completed for " + pID + ", thread dump count: " +
                 threadDumpCount + ", delay: " + delay + "ms");

@@ -60,6 +60,11 @@ public class JMXDataRetriever {
         return getInt(String.valueOf((usedValue * 100) / maxValue));
     }
 
+    public static double getSystemLoadAverage() {
+        String output = getJmxData(null, "SystemLoadAverage", "java.lang:type=OperatingSystem");
+        return getFloat(output); // This will return a load average value, or -1 if it fails
+    }
+
     private static int getInt(String output) {
         if (StringUtils.isEmpty(output)) {
             return -1;

@@ -37,6 +37,14 @@ public class Constants {
     public static final String CPU_WATCHER_INTERVAL = "cpu_watcher.interval";
     public static final String CPU_WATCHER_ACTION_EXECUTORS = "cpu_watcher.action_executors";
 
+    public static final String SYS_LA_WATCHER_ENABLED = "sys_la_watcher.enabled";
+
+    public static final String SYS_LA_WATCHER_THRESHOLD = "sys_la_watcher.threshold";
+    public static final String SYS_LA_WATCHER_RETRY_COUNT = "sys_la_watcher.attempts";
+    public static final String SYS_LA_WATCHER_INTERVAL = "sys_la_watcher.interval";
+
+    public static final String SYS_LA_WATCHER_ACTION_EXECUTORS = "sys_la_watcher.action_executors";
+
     // MemoryWatcher constants
     public static final String MEMORY_WATCHER_ENABLED = "memory_watcher.enabled";
     public static final String MEMORY_WATCHER_THRESHOLD = "memory_watcher.threshold";

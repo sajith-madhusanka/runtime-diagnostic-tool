@@ -25,6 +25,7 @@ import org.wso2.diagnostics.actionexecutor.ActionExecutor;
 import org.wso2.diagnostics.actionexecutor.ActionExecutorFactory;
 import org.wso2.diagnostics.actionexecutor.ServerInfo;
 import org.wso2.diagnostics.actionexecutor.ServerProcess;
+import org.wso2.diagnostics.watchers.SystemLoadAverageWatcher;
 import org.wso2.diagnostics.watchers.Watcher;
 import org.wso2.diagnostics.watchers.logwatcher.Interpreter;
 import org.wso2.diagnostics.utils.ConfigMapHolder;
@@ -45,20 +46,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-
-import static org.wso2.diagnostics.utils.Constants.APP_HOME;
-import static org.wso2.diagnostics.utils.Constants.CONFIG_FILE_PATH;
-import static org.wso2.diagnostics.utils.Constants.CPU_WATCHER_ENABLED;
-import static org.wso2.diagnostics.utils.Constants.CPU_WATCHER_RETRY_COUNT;
-import static org.wso2.diagnostics.utils.Constants.CPU_WATCHER_INTERVAL;
-import static org.wso2.diagnostics.utils.Constants.CPU_WATCHER_THRESHOLD;
-import static org.wso2.diagnostics.utils.Constants.LOG_WATCHER_ENABLED;
-import static org.wso2.diagnostics.utils.Constants.LOG_WATCHER_INTERVAL;
-import static org.wso2.diagnostics.utils.Constants.MEMORY_WATCHER_ENABLED;
-import static org.wso2.diagnostics.utils.Constants.MEMORY_WATCHER_INTERVAL;
-import static org.wso2.diagnostics.utils.Constants.MEMORY_WATCHER_RETRY_COUNT;
-import static org.wso2.diagnostics.utils.Constants.MEMORY_WATCHER_THRESHOLD;
-import static org.wso2.diagnostics.utils.Constants.WATCHER_INITIAL_DELAY;
+import static org.wso2.diagnostics.utils.Constants.*;
 
 /**
  * Diagnostic tool launcher.
@@ -133,6 +121,22 @@ public class DiagnosticsApp {
                         memoryWatcher, WATCHER_INITIAL_DELAY, memoryWatcherInterval, SECONDS);
             }
 
+            // create system load average watcher thread
+            boolean sysLAWatcherEnabled = Boolean.parseBoolean(configMap.get(SYS_LA_WATCHER_ENABLED).toString());
+            if (sysLAWatcherEnabled) {
+                int sysLAWatcherInterval = Integer.parseInt(configMap.get(SYS_LA_WATCHER_INTERVAL).toString());
+                int sysLAWatcherRetryCount = Integer.parseInt(configMap.get(SYS_LA_WATCHER_RETRY_COUNT).toString());
+                double sysLAWatcherThreshold = Double.parseDouble(configMap.get(SYS_LA_WATCHER_THRESHOLD).toString());
+
+                log.info("Initiating SystemLoadAverageWatcher with interval: " + sysLAWatcherInterval +
+                        " retry count: " + sysLAWatcherRetryCount + " threshold: " + sysLAWatcherThreshold);
+                ScheduledExecutorService cpuUsageExecutorService = Executors.newSingleThreadScheduledExecutor();
+                SystemLoadAverageWatcher sysLAWatcher = new SystemLoadAverageWatcher(
+                        sysLAWatcherThreshold, sysLAWatcherRetryCount);
+                cpuUsageExecutorService.scheduleAtFixedRate(
+                        sysLAWatcher, WATCHER_INITIAL_DELAY, sysLAWatcherInterval, SECONDS);
+            }
+
             // load custom watchers
             loadCustomWatchers(configMap);
 
@@ -189,19 +193,22 @@ public class DiagnosticsApp {
     private static void loadCustomWatchers(Map<String, Object> configMap) {
 
         // load custom watchers
-        ArrayList customWatchers = (ArrayList) configMap.get(Constants.CUSTOM_WATCHERS);
-        for (Object customWatcher : customWatchers) {
-            String watcherClass = (String) ((HashMap) customWatcher).get(Constants.CUSTOM_WATCHER_CLASS);
 
-            try {
-                Class watcher = Class.forName(watcherClass);
-                Watcher customWatcherInstance = (Watcher) watcher.newInstance();
-                customWatcherInstance.init(configMap);
-                log.info("Initiated Custom Watcher: " + watcherClass);
-                customWatcherInstance.start();
-                log.info("Started Custom Watcher: " + watcherClass);
-            } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
-                log.error("Error on loading custom watcher: " + watcherClass, e);
+        if (configMap.get(Constants.CUSTOM_WATCHERS)!= null) {
+            ArrayList customWatchers = (ArrayList) configMap.get(Constants.CUSTOM_WATCHERS);
+            for (Object customWatcher : customWatchers) {
+                String watcherClass = (String) ((HashMap) customWatcher).get(Constants.CUSTOM_WATCHER_CLASS);
+
+                try {
+                    Class watcher = Class.forName(watcherClass);
+                    Watcher customWatcherInstance = (Watcher) watcher.newInstance();
+                    customWatcherInstance.init(configMap);
+                    log.info("Initiated Custom Watcher: " + watcherClass);
+                    customWatcherInstance.start();
+                    log.info("Started Custom Watcher: " + watcherClass);
+                } catch (ClassNotFoundException | IllegalAccessException | InstantiationException e) {
+                    log.error("Error on loading custom watcher: " + watcherClass, e);
+                }
             }
         }
     }
