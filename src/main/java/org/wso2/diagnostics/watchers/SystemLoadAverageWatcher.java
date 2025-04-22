@@ -15,7 +15,7 @@ import org.wso2.diagnostics.utils.JMXDataRetriever;
  */
 public class SystemLoadAverageWatcher extends Thread {
 
-    private static final Logger log = LogManager.getLogger(CPUWatcher.class);
+    private static final Logger log = LogManager.getLogger(SystemLoadAverageWatcher.class);
 
     private final int retryCount;
     private final double threshold;

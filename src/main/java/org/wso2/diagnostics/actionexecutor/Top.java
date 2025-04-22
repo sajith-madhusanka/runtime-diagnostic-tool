@@ -14,7 +14,7 @@ import java.util.Scanner;
 
 public class Top implements ActionExecutor {
 
-    private static final Logger log = LogManager.getLogger(TCPDumper.class);
+    private static final Logger log = LogManager.getLogger(Top.class);
 
     private String command;
     public Top() {

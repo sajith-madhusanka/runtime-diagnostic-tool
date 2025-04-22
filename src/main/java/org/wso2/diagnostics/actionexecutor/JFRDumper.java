@@ -6,34 +6,29 @@ import org.wso2.diagnostics.utils.ConfigMapHolder;
 import org.wso2.diagnostics.utils.Constants;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.Scanner;
 
-/**
- * Class used to start capture TCP Dump.
- * tcpdump command is used to start capture tcpdump.
- */
-public class TCPDumper implements ActionExecutor {
+public class JFRDumper implements ActionExecutor {
 
-    private static final Logger log = LogManager.getLogger(TCPDumper.class);
+    private static final Logger log = LogManager.getLogger(JFRDumper.class);
 
-    private String command;
     private String duration;
-    public TCPDumper() {
+    private final String serverProcess;
+
+    public JFRDumper() {
         // read command from configmapholder
         Map configuration = ConfigMapHolder.getInstance().getConfigMap();
         ArrayList actionExecutorConfigs = (ArrayList) configuration.get(
                 Constants.TOML_NAME_ACTION_EXECUTOR_CONFIGURATION);
         for (Object actionExecutorConfig : actionExecutorConfigs) {
             Map actionExecutorConfigMap = (Map) actionExecutorConfig;
-            if (actionExecutorConfigMap.get("executor").equals("TCPDumper")) {
-                command = (String) actionExecutorConfigMap.get("command");
+            if (actionExecutorConfigMap.get("executor").equals("JFRDumper")) {
                 duration = (String) actionExecutorConfigMap.get("duration");
             }
         }
+        this.serverProcess = ServerProcess.getProcessId();
     }
 
     /**
@@ -45,23 +40,30 @@ public class TCPDumper implements ActionExecutor {
     public void execute(String filepath) {
 
         if (new File(filepath).exists()) { // check whether file exists before dumping.
-            String filename = "/tcpdump.pcap ";
-            String frame =  command+ " -w "+filepath + filename + " -G " + Long.parseLong(duration)*60;
-            try {
-                if (command != null) {
-                    Runtime.getRuntime().exec(frame);
-                    log.info("TCP Dumper command executed. Waiting for "+duration+ " minutes until the command execution completed");
-                    Thread.sleep(Long.parseLong(duration)* 60000);
-                } else {
-                    log.error("Unable to detect the OS");
-                }
 
-            } catch (IOException e) {
-                log.error("Unable to do tcpdump");
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+            String javaHome = System.getenv("JAVA_HOME");
+            if (javaHome == null) {
+                log.error("JAVA_HOME is not set.");
+                return;
+            }
+
+            String filename = filepath + "/wso2_profiling.jfr ";
+            String prefix = javaHome + "/bin/jcmd " + serverProcess + " JFR.start name=wso2_profiler duration=" + duration+"m";
+            String captureCommand = prefix + " filename=" + filename;
+
+            try {
+
+                Process captureProcess = Runtime.getRuntime().exec(captureCommand);
+                log.info("JFR capture command executed. Waiting for "+duration+ " minutes until the command execution completed");
+                Thread.sleep(Long.parseLong(duration)* 60000);
+
+
+            } catch (IOException | InterruptedException e) {
+                log.error("Error while executing jfr commands", e);
+                Thread.currentThread().interrupt(); // Restore interrupted status
             }
         }
+
     }
 
     public void execute() {
